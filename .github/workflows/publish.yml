@@ -1,0 +1,78 @@
+# Publishes to PyPI when a GitHub Release is published, matching how dregs-mcp releases.
+#
+# Authentication is PyPI Trusted Publishing: PyPI is configured to trust this repository and
+# this workflow file over OIDC, so there is no API token in repository secrets. Configure the
+# publisher at https://pypi.org/manage/project/dregs/settings/publishing/ with:
+#
+#   owner: dregs-sdk    repository: dregs-sdk-python    workflow: publish.yml    environment: pypi
+#
+# The `pypi` environment is the approval gate: a release cannot reach PyPI without whoever is
+# named as its reviewer signing off.
+name: Publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # A tag that disagrees with the packaged version would publish something other than what
+      # the release notes describe, and a version cannot be reused on PyPI once it is taken.
+      - name: Check that the release tag matches the package version
+        if: github.event_name == 'release'
+        run: |
+          version=$(uv version --short)
+          tag="${GITHUB_REF_NAME#v}"
+          echo "pyproject.toml=$version tag=$tag"
+          test "$version" = "$tag"
+
+      - name: Sync
+        run: uv sync --locked
+
+      - name: Test
+        run: uv run pytest
+
+      - name: Build
+        run: uv build
+
+      - name: Check the metadata
+        run: uvx twine check dist/*
+
+      - name: Upload the distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/dregs/
+    permissions:
+      id-token: write  # required for Trusted Publishing; nothing else needs a token
+    steps:
+      - name: Download the distribution
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
