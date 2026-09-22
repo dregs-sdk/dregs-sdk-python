@@ -111,8 +111,8 @@ class Dregs(BaseClient):
             source: A label for where the event came from. Defaults to ``"python-sdk"``.
 
         Returns:
-            A :class:`~dregs.models.TrackResult`. Check ``.accepted`` to distinguish a recorded
-            event from one of the rejections Dregs answers quietly.
+            A :class:`~dregs.models.TrackResult`. Check ``.accepted`` to confirm Dregs recorded
+            the event.
 
         Raises:
             QuotaExceededError: The account is over its monthly event limit.
