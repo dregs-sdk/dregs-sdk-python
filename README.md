@@ -71,8 +71,8 @@ result.accepted  # True when Dregs recorded the event
 result.id  # the event's id
 ```
 
-`accepted` is `False` for the handful of rejections Dregs answers quietly rather than naming the check
-that failed. Failures that are yours to act on raise instead — see [Errors](#errors).
+`accepted` is `False` in the uncommon case where Dregs accepts the request without recording an
+event. Failures that are yours to act on raise instead — see [Errors](#errors).
 
 ## Reading scores
 

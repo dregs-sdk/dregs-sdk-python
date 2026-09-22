@@ -44,7 +44,7 @@ def main() -> None:
         if result.accepted:
             print(f"Recorded event {result.id}.")
         else:
-            # Dregs answers a few rejections quietly rather than naming the check that failed.
+            # Uncommon, and worth a log line: accepted without an event being recorded.
             print(f"The event was not recorded (status {result.status}).")
 
 

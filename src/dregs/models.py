@@ -91,11 +91,11 @@ class TrackResult:
     def accepted(self) -> bool:
         """Whether Dregs recorded the event.
 
-        This is ``False`` for the handful of rejections Dregs answers quietly, rather than
-        naming the check that failed: an event from an origin the credential does not allow,
-        or one carrying a malformed device signature or an unusable event id. Ingestion
-        failures that are the caller's to act on (a bad request, an unknown key, an exhausted
-        quota, a rate limit) raise instead of landing here.
+        This is ``False`` in the uncommon case where Dregs accepts the request without
+        recording an event. A server-side integration holding a valid secret key should not
+        normally see it, so it is worth a log line if you do. Ingestion failures that are the
+        caller's to act on (a bad request, an unknown key, an exhausted quota, a rate limit)
+        raise instead of landing here.
         """
         return self.id is not None
 
