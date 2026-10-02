@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `groups` on `track()`: the organizations, teams, workspaces, or other groups the user is acting in,
+  each with an `id`, an optional `type` (`"organization"` by default), and optional `data`. Dregs makes
+  the identity a member of each.
+
 ## [0.1.0] - 2026-09-22
 
 The first release. A server-side client for tracking events and reading scores.

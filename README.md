@@ -50,6 +50,26 @@ signature, so the identity is the only thing tying the event to a user.
 heavily, so send them whenever you have them. Name the keys the way your application already does and
 map them to Dregs's canonical fields under **Settings → Mappings**; the same goes for event names.
 
+### Groups
+
+If your application groups users into organizations, teams, workspaces, or the like, pass the groups the
+user is acting in. Dregs records each group and makes the identity a member of it. Each group has your
+own `id`, a `type` that is your own name for the kind of group (`"organization"` when omitted), and
+optional `data` that Dregs merges into the group, so later events can send the type and id alone. Dregs
+normalizes types to lower_snake_case, so `ParentCompany` and `parent-company` are the same type, and an
+event can carry one group of each type.
+
+```python
+client.track(
+    "user.login",
+    identity="user_12345",
+    groups=[
+        {"type": "organization", "id": "org_678", "data": {"name": "Acme Inc", "plan": "enterprise"}},
+        {"type": "team", "id": "team_42", "data": {"name": "Payments"}},
+    ],
+)
+```
+
 ### Idempotency
 
 Every event is sent with an `id`, which makes ingestion idempotent: reposting the same id returns the

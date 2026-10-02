@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from types import TracebackType
 from typing import Any
@@ -73,6 +73,7 @@ class Dregs(BaseClient):
         identity: str,
         data: Mapping[str, Any] | None = None,
         identity_data: Mapping[str, Any] | None = None,
+        groups: Sequence[Mapping[str, Any]] | None = None,
         event_id: str | None = None,
         timestamp: datetime | None = None,
         source: str | None = None,
@@ -101,6 +102,11 @@ class Dregs(BaseClient):
                 merges these into the identity, and the analyzers lean on them heavily, so send
                 them whenever you have them. Flat keys work best; name them as your application
                 already does and map them under **Settings -> Mappings**.
+            groups: The groups the user is acting in, such as their organization or team, if your
+                application has them. Each is a mapping with an ``id`` (your own), an optional
+                ``type`` (your own name for the kind of group, defaulting to ``"organization"``),
+                and optional ``data`` that Dregs merges into the group. Dregs makes the identity
+                a member of each. At most one group of each type.
             event_id: Your own id for the event, which makes ingestion idempotent: reposting
                 the same id returns the original event instead of recording a second one. Pass
                 the id your application already has (the row id of the record that triggered
@@ -125,6 +131,7 @@ class Dregs(BaseClient):
             identity=identity,
             data=data,
             identity_data=identity_data,
+            groups=groups,
             event_id=event_id,
             timestamp=timestamp,
             source=source,
@@ -217,6 +224,7 @@ class AsyncDregs(BaseClient):
         identity: str,
         data: Mapping[str, Any] | None = None,
         identity_data: Mapping[str, Any] | None = None,
+        groups: Sequence[Mapping[str, Any]] | None = None,
         event_id: str | None = None,
         timestamp: datetime | None = None,
         source: str | None = None,
@@ -227,6 +235,7 @@ class AsyncDregs(BaseClient):
             identity=identity,
             data=data,
             identity_data=identity_data,
+            groups=groups,
             event_id=event_id,
             timestamp=timestamp,
             source=source,

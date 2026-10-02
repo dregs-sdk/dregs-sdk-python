@@ -10,7 +10,7 @@ import os
 import platform
 import random
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any, Final
 
@@ -29,6 +29,8 @@ DEFAULT_MAX_RETRIES: Final = 2
 
 SECRET_KEY_ENV: Final = "DREGS_SECRET_KEY"
 BASE_URL_ENV: Final = "DREGS_BASE_URL"
+
+DEFAULT_GROUP_TYPE: Final = "organization"
 
 #: Statuses worth another attempt. 429 and 5xx are transient by definition; 408 shows up in
 #: front of some proxies.
@@ -111,6 +113,7 @@ class BaseClient:
         identity: str,
         data: Mapping[str, Any] | None,
         identity_data: Mapping[str, Any] | None,
+        groups: Sequence[Mapping[str, Any]] | None,
         event_id: str | None,
         timestamp: datetime | None,
         source: str | None,
@@ -130,6 +133,7 @@ class BaseClient:
                 "identity is the only thing tying the event to a user."
             )
 
+        resolved_groups = _groups_body(groups)
         resolved_id = event_id if event_id is not None else uuid.uuid4().hex
 
         if resolved_id.startswith("dregs-"):
@@ -145,6 +149,9 @@ class BaseClient:
             "identity": {"id": identity, "data": dict(identity_data or {})},
             "source": source or "python-sdk",
         }
+
+        if resolved_groups:
+            body["groups"] = resolved_groups
 
         if timestamp is not None:
             body["timestamp"] = _isoformat(timestamp)
@@ -198,6 +205,51 @@ class BaseClient:
                 )
 
         return payload
+
+
+def _groups_body(groups: Sequence[Mapping[str, Any]] | None) -> list[dict[str, Any]]:
+    """Builds the ``groups`` list of a track body, refusing malformed entries before any request.
+
+    Each group needs an ``id``. Its ``type`` defaults to ``"organization"``, and Dregs normalizes it
+    to lower_snake_case, so only one group of each type may go with an event.
+    """
+    if groups is None:
+        return []
+
+    if isinstance(groups, (Mapping, str)):
+        raise ValueError("groups is a list of groups, such as [{'type': 'team', 'id': 'team_42'}].")
+
+    resolved: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    for group in groups:
+        if not isinstance(group, Mapping):
+            raise ValueError("Each group must be a mapping with an id, and optionally a type and data.")
+
+        group_id = group.get("id")
+
+        if group_id is None or str(group_id) == "":
+            raise ValueError("Each group needs an id.")
+
+        group_type = group.get("type") or DEFAULT_GROUP_TYPE
+
+        if not isinstance(group_type, str):
+            raise ValueError("A group's type must be a string, such as 'organization' or 'team'.")
+
+        if group_type.lower() in seen:
+            raise ValueError(
+                f"Only one group of each type can go with an event; '{group_type}' appears twice."
+            )
+
+        data = group.get("data")
+
+        if data is not None and not isinstance(data, Mapping):
+            raise ValueError("A group's data must be a mapping, such as {'name': 'Payments'}.")
+
+        seen.add(group_type.lower())
+        resolved.append({"type": group_type, "id": str(group_id), "data": dict(data or {})})
+
+    return resolved
 
 
 def _isoformat(value: datetime) -> str:

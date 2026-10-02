@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from typing import Any
 
 import httpx
 import pytest
@@ -145,6 +146,71 @@ class TestTrackRequest:
     def test_an_overlong_event_id_is_refused(self, client: Dregs) -> None:
         with pytest.raises(ValueError, match="64 characters"):
             client.track("user.signup", identity="user_12345", event_id="x" * 65)
+
+    @respx.mock
+    def test_sends_the_groups(self, client: Dregs) -> None:
+        route = respx.post(f"{BASE_URL}/events").mock(
+            return_value=httpx.Response(200, json={"status": "success", "id": "evt_1"})
+        )
+
+        client.track(
+            "user.login",
+            identity="user_12345",
+            groups=[
+                {"type": "organization", "id": "org_678", "data": {"name": "Acme Inc"}},
+                {"type": "team", "id": 42},
+            ],
+        )
+
+        body = json.loads(route.calls.last.request.content)
+
+        assert body["groups"] == [
+            {"type": "organization", "id": "org_678", "data": {"name": "Acme Inc"}},
+            {"type": "team", "id": "42", "data": {}},
+        ]
+
+    @respx.mock
+    def test_a_group_without_a_type_is_an_organization(self, client: Dregs) -> None:
+        route = respx.post(f"{BASE_URL}/events").mock(
+            return_value=httpx.Response(200, json={"status": "success", "id": "evt_1"})
+        )
+
+        client.track("user.login", identity="user_12345", groups=[{"id": "org_678"}])
+
+        body = json.loads(route.calls.last.request.content)
+
+        assert body["groups"] == [{"type": "organization", "id": "org_678", "data": {}}]
+
+    @respx.mock
+    def test_omits_the_groups_when_there_are_none(self, client: Dregs) -> None:
+        route = respx.post(f"{BASE_URL}/events").mock(
+            return_value=httpx.Response(200, json={"status": "success", "id": "evt_1"})
+        )
+
+        client.track("user.login", identity="user_12345")
+        client.track("user.login", identity="user_12345", groups=[])
+
+        assert "groups" not in json.loads(route.calls[0].request.content)
+        assert "groups" not in json.loads(route.calls[1].request.content)
+
+    @pytest.mark.parametrize(
+        ("groups", "message"),
+        [
+            ({"type": "team", "id": "team_42"}, "list of groups"),
+            (["team_42"], "mapping"),
+            ([{"type": "team"}], "needs an id"),
+            ([{"type": "team", "id": ""}], "needs an id"),
+            ([{"type": 7, "id": "team_42"}], "must be a string"),
+            ([{"type": "team", "id": "a"}, {"type": "Team", "id": "b"}], "one group of each type"),
+            ([{"id": "a"}, {"type": "organization", "id": "b"}], "one group of each type"),
+            ([{"type": "team", "id": "a", "data": ["x"]}], "data must be a mapping"),
+        ],
+    )
+    def test_malformed_groups_are_refused_before_any_request(
+        self, client: Dregs, groups: Any, message: str
+    ) -> None:
+        with pytest.raises(ValueError, match=message):
+            client.track("user.login", identity="user_12345", groups=groups)
 
 
 class TestTrackResponse:
