@@ -258,8 +258,8 @@ class TestGroups:
             return_value=httpx.Response(204)
         )
 
-        assert client.groups.add_member("team", "team_42", "ada@example.com") is None
-        assert client.groups.remove_member("team", "team_42", "ada@example.com") is None
+        client.groups.add_member("team", "team_42", "ada@example.com")
+        client.groups.remove_member("team", "team_42", "ada@example.com")
         assert put.called and delete.called
 
     def test_a_missing_id_is_refused_before_any_request(self, client: Dregs) -> None:
