@@ -2,7 +2,7 @@
 
 Thanks for helping improve the Dregs Python SDK.
 
-This is the **reference** SDK: the SDKs for TypeScript, Java, Ruby, and PHP are ported from this
+This is the **reference** SDK: the SDKs for TypeScript, Java, Ruby, PHP, Rust, and Elixir are ported from this
 one's shape. A change to the public surface here is a change to all of them, so surface changes
 are worth discussing in an issue before you write the code.
 
