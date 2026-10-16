@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from types import TracebackType
 from typing import Any
@@ -14,7 +14,18 @@ import httpx
 from ._base import DEFAULT_MAX_RETRIES, DEFAULT_TIMEOUT, BaseClient
 from .errors import DregsAPIError, DregsConnectionError, DregsTimeoutError, RateLimitError
 from .models import TrackResult
-from .resources import AsyncIdentities, Identities
+from .resources import (
+    AsyncDevices,
+    AsyncEscalations,
+    AsyncEvents,
+    AsyncGroups,
+    AsyncIdentities,
+    Devices,
+    Escalations,
+    Events,
+    Groups,
+    Identities,
+)
 
 __all__ = ["AsyncDregs", "Dregs"]
 
@@ -66,6 +77,18 @@ class Dregs(BaseClient):
         self.identities = Identities(self)
         """Read identities, their scores, and their analysis."""
 
+        self.groups = Groups(self)
+        """Read and manage groups and their members."""
+
+        self.events = Events(self)
+        """Read the events Dregs has recorded."""
+
+        self.devices = Devices(self)
+        """Read devices, and disregard them."""
+
+        self.escalations = Escalations(self)
+        """Read and work escalations."""
+
     def track(
         self,
         event_type: str,
@@ -73,6 +96,7 @@ class Dregs(BaseClient):
         identity: str,
         data: Mapping[str, Any] | None = None,
         identity_data: Mapping[str, Any] | None = None,
+        groups: Sequence[Mapping[str, Any]] | None = None,
         event_id: str | None = None,
         timestamp: datetime | None = None,
         source: str | None = None,
@@ -101,6 +125,11 @@ class Dregs(BaseClient):
                 merges these into the identity, and the analyzers lean on them heavily, so send
                 them whenever you have them. Flat keys work best; name them as your application
                 already does and map them under **Settings -> Mappings**.
+            groups: The groups the user is acting in, such as their organization or team, if your
+                application has them. Each is a mapping with an ``id`` (your own), an optional
+                ``type`` (your own name for the kind of group, defaulting to ``"organization"``),
+                and optional ``data`` that Dregs merges into the group. Dregs makes the identity
+                a member of each. At most one group of each type.
             event_id: Your own id for the event, which makes ingestion idempotent: reposting
                 the same id returns the original event instead of recording a second one. Pass
                 the id your application already has (the row id of the record that triggered
@@ -125,6 +154,7 @@ class Dregs(BaseClient):
             identity=identity,
             data=data,
             identity_data=identity_data,
+            groups=groups,
             event_id=event_id,
             timestamp=timestamp,
             source=source,
@@ -134,14 +164,17 @@ class Dregs(BaseClient):
 
         return TrackResult.from_api(payload if isinstance(payload, dict) else {})
 
-    def _request(self, method: str, path: str, *, json: Any = None) -> Any:
+    def _request(
+        self, method: str, path: str, *, json: Any = None, params: Mapping[str, Any] | None = None
+    ) -> Any:
         url = self._url(path)
         headers = self._headers()
+        query = _query(params)
         attempt = 0
 
         while True:
             try:
-                response = self._http.request(method, url, json=json, headers=headers)
+                response = self._http.request(method, url, json=json, params=query, headers=headers)
             except httpx.TimeoutException as exc:
                 if not self._should_retry(attempt=attempt, status_code=None):
                     raise DregsTimeoutError(f"Request to {url} timed out.") from exc
@@ -210,6 +243,18 @@ class AsyncDregs(BaseClient):
         self.identities = AsyncIdentities(self)
         """Read identities, their scores, and their analysis."""
 
+        self.groups = AsyncGroups(self)
+        """Read and manage groups and their members."""
+
+        self.events = AsyncEvents(self)
+        """Read the events Dregs has recorded."""
+
+        self.devices = AsyncDevices(self)
+        """Read devices, and disregard them."""
+
+        self.escalations = AsyncEscalations(self)
+        """Read and work escalations."""
+
     async def track(
         self,
         event_type: str,
@@ -217,6 +262,7 @@ class AsyncDregs(BaseClient):
         identity: str,
         data: Mapping[str, Any] | None = None,
         identity_data: Mapping[str, Any] | None = None,
+        groups: Sequence[Mapping[str, Any]] | None = None,
         event_id: str | None = None,
         timestamp: datetime | None = None,
         source: str | None = None,
@@ -227,6 +273,7 @@ class AsyncDregs(BaseClient):
             identity=identity,
             data=data,
             identity_data=identity_data,
+            groups=groups,
             event_id=event_id,
             timestamp=timestamp,
             source=source,
@@ -236,14 +283,17 @@ class AsyncDregs(BaseClient):
 
         return TrackResult.from_api(payload if isinstance(payload, dict) else {})
 
-    async def _request(self, method: str, path: str, *, json: Any = None) -> Any:
+    async def _request(
+        self, method: str, path: str, *, json: Any = None, params: Mapping[str, Any] | None = None
+    ) -> Any:
         url = self._url(path)
         headers = self._headers()
+        query = _query(params)
         attempt = 0
 
         while True:
             try:
-                response = await self._http.request(method, url, json=json, headers=headers)
+                response = await self._http.request(method, url, json=json, params=query, headers=headers)
             except httpx.TimeoutException as exc:
                 if not self._should_retry(attempt=attempt, status_code=None):
                     raise DregsTimeoutError(f"Request to {url} timed out.") from exc
@@ -280,6 +330,14 @@ class AsyncDregs(BaseClient):
         tb: TracebackType | None,
     ) -> None:
         await self.aclose()
+
+
+def _query(params: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """Drops unset parameters, and spells booleans the way the API's binder reads them."""
+    if not params:
+        return None
+
+    return {k: (str(v).lower() if isinstance(v, bool) else v) for k, v in params.items() if v is not None}
 
 
 def _retry_after_of(exc: DregsAPIError) -> float | None:

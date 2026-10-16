@@ -50,6 +50,26 @@ signature, so the identity is the only thing tying the event to a user.
 heavily, so send them whenever you have them. Name the keys the way your application already does and
 map them to Dregs's canonical fields under **Settings → Mappings**; the same goes for event names.
 
+### Groups
+
+If your application groups users into organizations, teams, workspaces, or the like, pass the groups the
+user is acting in. Dregs records each group and makes the identity a member of it. Each group has your
+own `id`, a `type` that is your own name for the kind of group (`"organization"` when omitted), and
+optional `data` that Dregs merges into the group, so later events can send the type and id alone. Dregs
+normalizes types to lower_snake_case, so `ParentCompany` and `parent-company` are the same type, and an
+event can carry one group of each type.
+
+```python
+client.track(
+    "user.login",
+    identity="user_12345",
+    groups=[
+        {"type": "organization", "id": "org_678", "data": {"name": "Acme Inc", "plan": "enterprise"}},
+        {"type": "team", "id": "team_42", "data": {"name": "Payments"}},
+    ],
+)
+```
+
 ### Idempotency
 
 Every event is sent with an `id`, which makes ingestion idempotent: reposting the same id returns the
@@ -131,6 +151,92 @@ client.identities.analyze("user_12345")
 
 This queues the work and returns; it does not wait for the cycle to finish. Dregs rescores on its own
 as events arrive, so you rarely need this outside of a support or backfill flow.
+
+### History, links, and past cycles
+
+```python
+for entry in client.identities.history("user_12345", limit=10):
+    print(entry.finished_at, entry.humanity, entry.behavior)
+
+older = client.identities.analysis("user_12345", entry.cycle_id)  # a past cycle's observations
+
+for link in client.identities.links("user_12345"):
+    print(link.identity_id, link.type, link.explanation)  # e.g. "user_999", "SAME_DEVICE"
+```
+
+### Disregarding an identity
+
+Leave your own staff and test accounts out of scoring and escalations:
+
+```python
+client.identities.update("qa_bot_7", disregarded=True)
+```
+
+### Asking for a review
+
+When a score looks wrong, Dregs's AI reviewer will look over the analysis and say why. The review runs
+in the background, so read it back later with `reviews()`.
+
+```python
+review = client.identities.review("user_12345", feedback="This is a long-standing customer.")
+
+review.status  # "PENDING", then "FINISHED"
+```
+
+## Listing and paging
+
+Every namespace with a `list()` returns one `Page` at a time, numbered from 0, and a `list_all()` that
+walks every page for you:
+
+```python
+page = client.identities.list(term="example.com", page_size=50)
+
+page.total_elements  # how many match in all
+page.has_next  # whether another page follows
+
+for identity in client.identities.list_all(group="org_678", sort="humanityScore", order="asc"):
+    ...
+```
+
+Filters you leave out are not sent. A page holds at most 100 items.
+
+## Groups
+
+`track()` records groups and memberships as events arrive. The `groups` namespace reads them back, and
+keeps Dregs in step when something changes outside an event, such as a user leaving a team:
+
+```python
+client.groups.create("org_678", attributes={"name": "Acme Inc", "plan": "enterprise"})
+
+group = client.groups.get("organization", "org_678")
+group.identity_count  # 12
+
+client.groups.update("organization", "org_678", {"plan": "business"})
+
+client.groups.add_member("team", "team_42", "user_12345")
+client.groups.remove_member("team", "team_42", "user_12345")
+
+for team in client.groups.list_all(group_type="team", identity="user_12345"):
+    print(team.id, team.display_name)
+```
+
+`create()` merges into the group when one with the same type and id already exists, so it is safe to call
+on every sync. The type defaults to `"organization"`.
+
+## Events, devices, and escalations
+
+```python
+for event in client.events.list_all(identity="user_12345"):
+    print(event.timestamp, event.name, event.canonical_type)
+
+client.devices.update("a1b2c3d4e5", disregarded=True)  # e.g. a shared office machine
+
+for escalation in client.escalations.list_all(status="open", severity="critical"):
+    notify_on_call(escalation.identity.id)
+    client.escalations.update(escalation.id, status="acknowledged")
+
+client.escalations.summary()  # EscalationSummary(open=3, acknowledged=1, closed=20)
+```
 
 ## Errors
 

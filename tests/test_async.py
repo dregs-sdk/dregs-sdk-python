@@ -24,6 +24,7 @@ async def test_track_sends_the_same_body() -> None:
             "user.signup",
             identity="user_12345",
             data={"plan": "pro"},
+            groups=[{"type": "team", "id": "team_42"}],
             event_id="signup-991",
         )
 
@@ -31,6 +32,7 @@ async def test_track_sends_the_same_body() -> None:
 
     assert body["id"] == "signup-991"
     assert body["identity"]["id"] == "user_12345"
+    assert body["groups"] == [{"type": "team", "id": "team_42", "data": {}}]
     assert result.accepted is True
 
 

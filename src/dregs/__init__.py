@@ -23,7 +23,7 @@ in the same breath. See https://dregs.com/manual/api/ for the API this wraps.
 
 from __future__ import annotations
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"
 
 from ._client import AsyncDregs, Dregs
 from .errors import (
@@ -44,9 +44,20 @@ from .models import (
     Analysis,
     Badge,
     Category,
+    Device,
+    Escalation,
+    EscalationSummary,
+    Event,
+    Group,
+    GroupReference,
     Identity,
+    IdentityReview,
+    LinkedIdentity,
     Observation,
+    Page,
+    Reference,
     Score,
+    ScoreHistoryEntry,
     Scores,
     TrackResult,
 )
@@ -58,18 +69,29 @@ __all__ = [
     "BadRequestError",
     "Badge",
     "Category",
+    "Device",
     "Dregs",
     "DregsAPIError",
     "DregsConnectionError",
     "DregsError",
     "DregsTimeoutError",
+    "Escalation",
+    "EscalationSummary",
+    "Event",
+    "Group",
+    "GroupReference",
     "Identity",
+    "IdentityReview",
+    "LinkedIdentity",
     "NotFoundError",
     "Observation",
+    "Page",
     "PermissionDeniedError",
     "QuotaExceededError",
     "RateLimitError",
+    "Reference",
     "Score",
+    "ScoreHistoryEntry",
     "Scores",
     "ServerError",
     "TrackResult",

@@ -1,6 +1,6 @@
 [project]
 name = "dregs"
-version = "0.1.0"
+version = "1.0.0"
 description = "Python SDK for Dregs, the fraud and abuse scoring service."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -9,7 +9,7 @@ license-files = ["LICENSE"]
 authors = [{ name = "Dregs", email = "support@dregs.com" }]
 keywords = ["dregs", "fraud", "abuse", "fraud-detection", "bot-detection", "risk-scoring"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
